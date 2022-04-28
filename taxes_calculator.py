@@ -152,7 +152,7 @@ def calculate_monthly_revenue(monthly_income: float,
 
     Returns:
         float: the monthly revenue
-        int: the table with the smaller taxes
+        int: the table attachment with the smaller taxes (3 or 5)
     """
     ## Calculates using attachment 3
     pf_income_3 =  pf_income if pf_income else monthly_income*R_FACTOR_THRESHOLD
@@ -180,5 +180,11 @@ def calculate_monthly_revenue(monthly_income: float,
                           - monthly_income*pj_taxes_5 + pf_discounted_5 \
                           + pj_deduct_5
 
-    ## return the greatest value
-    return max(discounted_income_3, discounted_income_5)
+    max_val = discounted_income_3
+    max_attach = 3
+    if discounted_income_5 > discounted_income_3:
+        max_val = discounted_income_5
+        max_attach = 5
+
+    ## return the greatest value and the corresponding table attachment number
+    return max_val, max_attach
