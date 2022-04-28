@@ -174,7 +174,7 @@ def calculate_monthly_revenue(monthly_income: float,
     irpf_5, deduct_5 = get_pf_irpf_cut(pf_income_5)
     pf_discounts_5 = pf_income_5*(irpf_5) - deduct_5 + inss_5
     pf_discounted_5 = pf_income_5 - pf_discounts_5
-    pj_taxes_5, pj_deduct_5 = get_pj_taxes_cut(yearly_income, ATTACH_5,
+    pj_taxes_5, pj_deduct_5 = get_pj_taxes_cut(last_12_months_income, ATTACH_5,
                                                is_external=is_external)
     discounted_income_5 = monthly_income - pf_income_5 \
                           - monthly_income*pj_taxes_5 + pf_discounted_5 \
