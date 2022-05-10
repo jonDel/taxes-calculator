@@ -1,6 +1,7 @@
 """Calculate taxes and the final revenue"""
 
 
+DISCOUNT_PER_DEPENDENT = 189.59
 MININUM_WAGE = 1212.00
 IRRF_TABLE = [
     {"start": 0,       "end": 1903.98, "tax": 0, "deduct": 0},
@@ -84,11 +85,11 @@ def get_pf_inss_cut(monthly_income: float) -> float:
     return INSS_TABLE[range_index]["tax"]
 
 
-def get_pf_irpf_cut(monthly_income: float) -> float:
+def get_pf_irpf_cut(irpf_base: float) -> float:
     """
 
     Args:
-        monthly_income (float): the person's monthly income
+        irpf_base (float): the person's monthly IRPF base
 
     Returns:
         float: taxes cut, in the range [0, 1]
@@ -96,7 +97,7 @@ def get_pf_irpf_cut(monthly_income: float) -> float:
     """
     range_index = 0
     for index, income_range in enumerate(IRRF_TABLE):
-        if income_range["start"] <= monthly_income <= income_range["end"]:
+        if income_range["start"] <= irpf_base <= income_range["end"]:
             range_index = index
             break
     return IRRF_TABLE[range_index]["tax"], IRRF_TABLE[range_index]["deduct"]
@@ -138,6 +139,7 @@ def get_pj_taxes_cut(last_12_months_income: float,
 def calculate_monthly_revenue(monthly_income: float,
                               last_12_months_income: float,
                               is_external: bool = True,
+                              number_of_dependents: int = 0,
                               pf_income: float = 0) -> int:
     """Find which taxes table/attachment gives the smaller taxes and
        calculates the monthly revenue after all discounts
@@ -147,6 +149,7 @@ def calculate_monthly_revenue(monthly_income: float,
         last_12_months_income (float): last 12 months total income
         is_external (bool, optional): If the service is provided in other
             country. Defaults to True.
+        number_of_dependents (int, optional): Number of dependents. Defaults to 0.
         pf_income (float, optional): Income as PF (not PJ). Defaults to 0.
             If not given, the best value will ber calculated.
 
@@ -157,8 +160,10 @@ def calculate_monthly_revenue(monthly_income: float,
     ## Calculates using attachment 3
     pf_income_3 =  pf_income if pf_income else monthly_income*R_FACTOR_THRESHOLD
     inss_3 = get_pf_inss_cut(pf_income_3)
-    irpf_3, deduct_3 = get_pf_irpf_cut(monthly_income*R_FACTOR_THRESHOLD)
-    pf_discounts_3 = pf_income_3*(irpf_3) - deduct_3 + inss_3
+    base_irpf = pf_income_3 - inss_3 \
+                - number_of_dependents*DISCOUNT_PER_DEPENDENT
+    irpf_3, deduct_3 = get_pf_irpf_cut(base_irpf)
+    pf_discounts_3 = base_irpf*(irpf_3) - deduct_3 + inss_3
     pf_discounted_3 = pf_income_3 - pf_discounts_3
     pj_taxes_3, pj_deduct_3 = get_pj_taxes_cut(last_12_months_income,
                                                ATTACH_3,
@@ -168,11 +173,12 @@ def calculate_monthly_revenue(monthly_income: float,
                           + pj_deduct_3
 
     ## Calculates using attachment 5
-    pf_income_3 =  pf_income if pf_income else monthly_income*R_FACTOR_THRESHOLD
     pf_income_5 = pf_income if pf_income else MININUM_WAGE
     inss_5 = get_pf_inss_cut(pf_income_5)
-    irpf_5, deduct_5 = get_pf_irpf_cut(pf_income_5)
-    pf_discounts_5 = pf_income_5*(irpf_5) - deduct_5 + inss_5
+    base_irpf = pf_income_5 - inss_5 \
+                - number_of_dependents*DISCOUNT_PER_DEPENDENT
+    irpf_5, deduct_5 = get_pf_irpf_cut(base_irpf)
+    pf_discounts_5 = base_irpf*(irpf_5) - deduct_5 + inss_5
     pf_discounted_5 = pf_income_5 - pf_discounts_5
     pj_taxes_5, pj_deduct_5 = get_pj_taxes_cut(last_12_months_income, ATTACH_5,
                                                is_external=is_external)
