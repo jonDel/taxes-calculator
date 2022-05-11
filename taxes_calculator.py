@@ -1,6 +1,7 @@
 """Calculate taxes and the final revenue"""
 
-
+INSS_ROOF = 7087.22
+INSS_MAX_ASSOCIATE_DISCOUNT = INSS_ROOF*0.11
 DISCOUNT_PER_DEPENDENT = 189.59
 MININUM_WAGE = 1212.00
 IRRF_TABLE = [
@@ -11,10 +12,10 @@ IRRF_TABLE = [
     {"start": 4664.69, "end": float("inf"), "tax": 0.275, "deduct": 869.36}
 ]
 INSS_TABLE = [
-    {"start": 0,       "end": 1100.00, "tax": 0.075},
-    {"start": 1100.01, "end": 2203.48, "tax": 0.09},
-    {"start": 2203.49, "end": 3305.22, "tax": 0.12},
-    {"start": 3305.23, "end": 6433.57, "tax": 0.14}
+    {"start": 0,       "end": 1212.00, "tax": 0.075},
+    {"start": 1212.01, "end": 2427.35, "tax": 0.09},
+    {"start": 2427.36, "end": 3641.03, "tax": 0.12},
+    {"start": 3641.03, "end": INSS_ROOF, "tax": 0.14}
 ]
 YEARLY_INCOME_TABLE = [
     [0, 180000],
@@ -75,14 +76,16 @@ def get_pf_inss_cut(monthly_income: float) -> float:
         monthly_income (float): the person's monthly income
 
     Returns:
-        float: inss cut, in the range [0, 1]
+        float: inss cut
     """
+    if monthly_income >= INSS_ROOF:
+        return INSS_MAX_ASSOCIATE_DISCOUNT
     range_index = len(INSS_TABLE) -1
     for index, income_range in enumerate(INSS_TABLE):
         if income_range["start"] <= monthly_income <= income_range["end"]:
             range_index = index
             break
-    return INSS_TABLE[range_index]["tax"]
+    return INSS_TABLE[range_index]["tax"]*monthly_income
 
 
 def get_pf_irpf_cut(irpf_base: float) -> float:
@@ -160,32 +163,45 @@ def calculate_monthly_revenue(monthly_income: float,
     ## Calculates using attachment 3
     pf_income_3 =  pf_income if pf_income else monthly_income*R_FACTOR_THRESHOLD
     inss_3 = get_pf_inss_cut(pf_income_3)
+    print(f"ATTACH 3: INSS cut: {inss_3}")
     base_irpf = pf_income_3 - inss_3 \
                 - number_of_dependents*DISCOUNT_PER_DEPENDENT
     irpf_3, deduct_3 = get_pf_irpf_cut(base_irpf)
     pf_discounts_3 = base_irpf*(irpf_3) - deduct_3 + inss_3
     pf_discounted_3 = pf_income_3 - pf_discounts_3
+    print(f"ATTACH 3: Base IRPF: {base_irpf}")
+    print(f"ATTACH 3: IRPF discount: {base_irpf*(irpf_3) - deduct_3}")
+    print("ATTACH 3: PF income after discounts: "
+          f"{pf_income_3 - (base_irpf*(irpf_3) - deduct_3 + inss_3)}")
     pj_taxes_3, pj_deduct_3 = get_pj_taxes_cut(last_12_months_income,
                                                ATTACH_3,
                                                is_external=is_external)
     discounted_income_3 = monthly_income -pf_income_3 \
                           - monthly_income*pj_taxes_3 + pf_discounted_3 \
                           + pj_deduct_3
+    print(f"ATTACH_3: Discounted income: {discounted_income_3}")
+    print(f"ATTACH_3: Discounts: {(1 -discounted_income_3/monthly_income)*100} %")
 
     ## Calculates using attachment 5
     pf_income_5 = pf_income if pf_income else MININUM_WAGE
     inss_5 = get_pf_inss_cut(pf_income_5)
+    print(f"ATTACH 5: INSS cut: {inss_5}")
     base_irpf = pf_income_5 - inss_5 \
                 - number_of_dependents*DISCOUNT_PER_DEPENDENT
     irpf_5, deduct_5 = get_pf_irpf_cut(base_irpf)
     pf_discounts_5 = base_irpf*(irpf_5) - deduct_5 + inss_5
     pf_discounted_5 = pf_income_5 - pf_discounts_5
+    print(f"ATTACH 5: Base IRPF: {base_irpf}")
+    print(f"ATTACH 5: IRPF discount: {base_irpf*(irpf_5) - deduct_5}")
+    print("ATTACH 5: PF income after discounts: "
+          f"{pf_income_5 - (base_irpf*(irpf_5) - deduct_5 + inss_5)}")
     pj_taxes_5, pj_deduct_5 = get_pj_taxes_cut(last_12_months_income, ATTACH_5,
                                                is_external=is_external)
     discounted_income_5 = monthly_income - pf_income_5 \
                           - monthly_income*pj_taxes_5 + pf_discounted_5 \
                           + pj_deduct_5
-
+    print(f"ATTACH_5: Discounted income: {discounted_income_5}")
+    print(f"ATTACH_5: Discounts: {(1 -discounted_income_5/monthly_income)*100} %")
     max_val = discounted_income_3
     max_attach = 3
     if discounted_income_5 > discounted_income_3:
